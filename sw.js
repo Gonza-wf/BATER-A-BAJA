@@ -1,11 +1,11 @@
-const CACHE_NAME = "bateria-baja-v6";
+const CACHE_NAME = "bateria-baja-v7";
 const ASSETS = [
-  "./",
-  "./index.html",
-  "./manifest.json",
-  "./icon-192.png",
-  "./icon-512.png"
-];
+  "/bateria-baja/",
+  "/bateria-baja/index.html",
+  "/bateria-baja/manifest.json",
+  "/bateria-baja/icon-192.png",
+  "/bateria-baja/icon-512.png"
+];;
 
 self.addEventListener("install", event => {
   event.waitUntil(
@@ -30,6 +30,7 @@ self.addEventListener("fetch", event => {
     caches.match(event.request).then(res => res || fetch(event.request))
   );
 });
+
 
 
 
