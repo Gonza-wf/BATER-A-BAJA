@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>BATERÍA BAJA</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=VT323&family=Creepster&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        
+        body {
+            font-family: 'VT323', monospace;
+            background: #0a0a0a;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+        
+        .glitch {
+            animation: glitch 0.3s infinite;
+        }
+        
+        @keyframes glitch {
+            0% { transform: translate(0); filter: hue-rotate(0deg); }
+            20% { transform: translate(-2px, 2px); filter: hue-rotate(90deg); }
+            40% { transform: translate(2px, -2px); filter: hue-rotate(180deg); }
+            60% { transform: translate(-2px, -2px); filter: hue-rotate(270deg); }
+            80% { transform: translate(2px, 2px); filter: hue-rotate(360deg); }
+            100% { transform: translate(0); }
+        }
+        
+        @keyframes flicker {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px) rotate(-1deg); }
+            75% { transform: translateX(5px) rotate(1deg); }
+        }
+        
+        .shake {
+            animation: shake 0.1s infinite;
+        }
+        
+        .flicker {
+            animation: flicker 0.15s infinite;
+        }
+        
+        #gameCanvas {
+            display: block;
+            image-rendering: pixelated;
+        }
+        
+        .scanlines::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.15),
+                rgba(0, 0, 0, 0.15) 1px,
+                transparent 1px,
+                transparent 2px
+            );
+            pointer-events: none;
+            z-index: 1000;
+        }
+        
+        .warning-text {
+            font-family: 'Creepster', cursive;
+        }
+    </style>
+</head>
+<body class="scanlines">
+    <!-- Start Screen -->
+    <div id="startScreen" class="fixed inset-0 flex flex-col items-center justify-center bg-black z-50">
+        <div class="text-center px-4">
+            <h1 class="text-6xl md:text-8xl font-bold text-red-500 mb-4 warning-text tracking-wider">BATERÍA BAJA</h1>
+            <p class="text-xl md:text-2xl text-gray-400 mb-2">Tu batería real es la dificultad</p>
+            <p class="text-lg text-gray-600 mb-8">Cuanta menos batería, más sufrís</p>
+            
+            <div id="batteryInfo" class="mb-8">
+                <div class="text-4xl md:text-6xl font-bold text-yellow-400 mb-2">
+                    <span id="currentBattery">--</span>%
+                </div>
+                <p id="batteryStatus" class="text-gray-500">Detectando batería...</p>
+            </div>
+            
+            <button id="startBtn" class="bg-red-600 hover:bg-red-700 text-white text-2xl md:text-3xl px-8 py-4 rounded-lg transition-all transform hover:scale-105 active:scale-95">
+                EMPEZAR A SUFRIR
+            </button>
+            
+            <p class="text-gray-600 text-sm mt-6">Toca la pantalla o presiona ESPACIO para saltar</p>
+            <p class="text-red-400 text-xs mt-2">⚠️ No nos hacemos responsables del trauma</p>
+        </div>
+    </div>
+    
+    <!-- Game Over Screen -->
+    <div id="gameOverScreen" class="fixed inset-0 flex flex-col items-center justify-center bg-black z-50 hidden">
+        <div class="text-center px-4">
+            <h2 id="gameOverTitle" class="text-5xl md:text-7xl font-bold text-red-500 mb-4 warning-text">MORISTE</h2>
+            <p id="gameOverMessage" class="text-xl text-gray-400 mb-4"></p>
+            <div class="text-3xl text-yellow-400 mb-2">Puntos: <span id="finalScore">0</span></div>
+            <div class="text-lg text-gray-500 mb-8">Batería al morir: <span id="deathBattery">0</span>%</div>
+            <button id="restartBtn" class="bg-red-600 hover:bg-red-700 text-white text-xl px-6 py-3 rounded-lg">
+                OTRA VEZ
+            </button>
+        </div>
+    </div>
+    
+    <!-- Final Screen (1% ending) -->
+    <div id="finalScreen" class="fixed inset-0 flex flex-col items-center justify-center bg-black z-50 hidden">
+        <div class="text-center px-4">
+            <p id="finalText" class="text-2xl md:text-4xl text-white leading-relaxed"></p>
+        </div>
+    </div>
+    
+    <!-- Warning Messages -->
+    <div id="warningContainer" class="fixed top-4 left-0 right-0 flex justify-center z-40 pointer-events-none">
+        <div id="warningMessage" class="bg-red-900/90 text-red-200 px-6 py-3 rounded-lg text-xl hidden">
+        </div>
+    </div>
+    
+    <!-- HUD -->
+    <div id="hud" class="fixed top-4 left-4 right-4 flex justify-between items-start z-30 hidden">
+        <div class="bg-black/70 px-4 py-2 rounded-lg">
+            <div class="text-2xl text-white">PUNTOS: <span id="score">0</span></div>
+        </div>
+        <div class="bg-black/70 px-4 py-2 rounded-lg text-right">
+            <div class="text-2xl text-yellow-400"><span id="hudBattery">100</span>%</div>
+            <div id="chargingIndicator" class="text-green-400 text-sm hidden">⚡ CARGANDO</div>
+        </div>
+    </div>
+    
+    <!-- Game Canvas -->
+    <canvas id="gameCanvas"></canvas>
+    
+    <!-- Audio Context Warning -->
+    <div id="audioWarning" class="fixed bottom-4 left-4 right-4 text-center text-gray-600 text-sm z-30 hidden">
+        Toca para activar sonido
+    </div>
+
+    <script>
+        // Game State
+        const state = {
+            battery: 100,
+            charging: false,
+            simulated: false,
+            gameRunning: false,
+            score: 0,
+            speed: 5,
+            jumpForce: -15,
+            gravity: 0.8,
+            playerY: 0,
+            playerVelocity: 0,
+            isJumping: false,
+            obstacles: [],
+            groundY: 0,
+            lastObstacle: 0,
+            warningShown: {},
+            finalTriggered: false,
+            finalLock: false,
+            chargingTrap: false,
+            chargingPunishment: false,
+            tempSpeedBoost: 1,
+            lastBatteryUpdate: 0,
+            lastBatteryValue: -1,
+            audioCtx: null,
+            canPlayAudio: false
+        };
+        
+        // DOM Elements
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const finalScreen = document.getElementById('finalScreen');
+        const hud = document.getElementById('hud');
+        const warningMessage = document.getElementById('warningMessage');
+        const warningContainer = document.getElementById('warningContainer');
+        
+        // Canvas Setup
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            state.groundY = canvas.height - 100;
+            state.playerY = state.groundY;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Battery API
+        async function initBattery() {
+            try {
+                if ('getBattery' in navigator) {
+                    const battery = await navigator.getBattery();
+                    
+                    const updateBattery = () => {
+                        state.battery = Math.round(battery.level * 100);
+                        state.charging = battery.charging;
+                        updateBatteryDisplay();
+                    };
+                    
+                    battery.addEventListener('levelchange', updateBattery);
+                    battery.addEventListener('chargingchange', updateBattery);
+                    updateBattery();
+                    
+                    document.getElementById('batteryStatus').textContent = 'Batería real detectada 🔋';
+                    document.getElementById('batteryStatus').className = 'text-green-400';
+                } else {
+                    enableSimulatedMode();
+                }
+            } catch (e) {
+                enableSimulatedMode();
+            }
+        }
+        
+        function enableSimulatedMode() {
+            state.simulated = true;
+            state.battery = 50;
+            document.getElementById('batteryStatus').textContent = 'Modo simulado (arrastrá para cambiar batería)';
+            document.getElementById('batteryStatus').className = 'text-yellow-400';
+            
+            // Add drag to change battery in simulated mode
+            let startY = 0;
+            document.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; });
+            document.addEventListener('touchmove', (e) => {
+                if (state.simulated && !state.gameRunning) {
+                    const delta = (startY - e.touches[0].clientY) / 5;
+                    state.battery = Math.max(1, Math.min(100, state.battery + delta));
+                    startY = e.touches[0].clientY;
+                    updateBatteryDisplay();
+                }
+            });
+        }
+        
+        function updateBatteryDisplay() {
+            document.getElementById('currentBattery').textContent = state.battery;
+            document.getElementById('hudBattery').textContent = state.battery;
+            
+            const batteryEl = document.getElementById('currentBattery');
+            if (state.battery <= 10) {
+                batteryEl.className = 'text-red-500';
+            } else if (state.battery <= 20) {
+                batteryEl.className = 'text-orange-400';
+            } else if (state.battery <= 50) {
+                batteryEl.className = 'text-yellow-400';
+            } else {
+                batteryEl.className = 'text-green-400';
+            }
+            
+            document.getElementById('chargingIndicator').classList.toggle('hidden', !state.charging);
+        }
+        
+        // Audio System
+        function initAudio() {
+            if (!state.audioCtx) {
+                state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (state.audioCtx.state === 'suspended') {
+                state.audioCtx.resume();
+            }
+            state.canPlayAudio = true;
+            document.getElementById('audioWarning').classList.add('hidden');
+        }
+        
+        function playSound(type) {
+            if (!state.canPlayAudio || !state.audioCtx) return;
+            
+            const osc = state.audioCtx.createOscillator();
+            const gain = state.audioCtx.createGain();
+            
+            osc.connect(gain);
+            gain.connect(state.audioCtx.destination);
+            
+            const distortion = state.battery < 30 ? (30 - state.battery) / 30 : 0;
+            
+            switch(type) {
+                case 'jump':
+                    osc.frequency.setValueAtTime(200 + Math.random() * 100 * distortion, state.audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(400, state.audioCtx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.2, state.audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, state.audioCtx.currentTime + 0.15);
+                    osc.type = distortion > 0.5 ? 'sawtooth' : 'sine';
+                    osc.start();
+                    osc.stop(state.audioCtx.currentTime + 0.15);
+                    break;
+                    
+                case 'hit':
+                    osc.frequency.setValueAtTime(150, state.audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(50, state.audioCtx.currentTime + 0.3);
+                    gain.gain.setValueAtTime(0.4, state.audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, state.audioCtx.currentTime + 0.3);
+                    osc.type = 'sawtooth';
+                    osc.start();
+                    osc.stop(state.audioCtx.currentTime + 0.3);
+                    break;
+                    
+                case 'warning':
+                    osc.frequency.setValueAtTime(880, state.audioCtx.currentTime);
+                    osc.frequency.setValueAtTime(440, state.audioCtx.currentTime + 0.1);
+                    osc.frequency.setValueAtTime(880, state.audioCtx.currentTime + 0.2);
+                    gain.gain.setValueAtTime(0.3, state.audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, state.audioCtx.currentTime + 0.4);
+                    osc.type = 'square';
+                    osc.start();
+                    osc.stop(state.audioCtx.currentTime + 0.4);
+                    break;
+                    
+                case 'heartbeat':
+                    osc.frequency.setValueAtTime(60, state.audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.5, state.audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, state.audioCtx.currentTime + 0.15);
+                    osc.type = 'sine';
+                    osc.start();
+                    osc.stop(state.audioCtx.currentTime + 0.2);
+                    
+                    setTimeout(() => {
+                        if (!state.audioCtx) return;
+                        const osc2 = state.audioCtx.createOscillator();
+                        const gain2 = state.audioCtx.createGain();
+                        osc2.connect(gain2);
+                        gain2.connect(state.audioCtx.destination);
+                        osc2.frequency.setValueAtTime(50, state.audioCtx.currentTime);
+                        gain2.gain.setValueAtTime(0.3, state.audioCtx.currentTime);
+                        gain2.gain.exponentialRampToValueAtTime(0.01, state.audioCtx.currentTime + 0.1);
+                        osc2.start();
+                        osc2.stop(state.audioCtx.currentTime + 0.15);
+                    }, 150);
+                    break;
+                    
+                case 'static':
+                    const bufferSize = state.audioCtx.sampleRate * 0.5;
+                    const buffer = state.audioCtx.createBuffer(1, bufferSize, state.audioCtx.sampleRate);
+                    const output = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) {
+                        output[i] = Math.random() * 2 - 1;
+                    }
+                    const noise = state.audioCtx.createBufferSource();
+                    noise.buffer = buffer;
+                    const noiseGain = state.audioCtx.createGain();
+                    noiseGain.gain.setValueAtTime(0.1 * distortion, state.audioCtx.currentTime);
+                    noise.connect(noiseGain);
+                    noiseGain.connect(state.audioCtx.destination);
+                    noise.start();
+                    noise.stop(state.audioCtx.currentTime + 0.3);
+                    break;
+                    
+                case 'final':
+                    osc.frequency.setValueAtTime(100, state.audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(20, state.audioCtx.currentTime + 3);
+                    gain.gain.setValueAtTime(0.5, state.audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, state.audioCtx.currentTime + 3);
+                    osc.type = 'sawtooth';
+                    osc.start();
+                    osc.stop(state.audioCtx.currentTime + 3);
+                    break;
+            }
+        }
+        
+        // Game Difficulty based on battery - NOW WITH CRUEL SPIKES
+        function getDifficulty() {
+            const battery = state.battery;
+            
+            let speedMult, jumpMult, spawnRate, effectIntensity;
+            
+            // NON-LINEAR DIFFICULTY - Sudden jumps to cause anxiety
+            if (battery > 30) {
+                // 100-30%: "ok, juego"
+                speedMult = 1 + ((100 - battery) / 100) * 0.5;
+                jumpMult = 1;
+                spawnRate = 2000;
+                effectIntensity = 0;
+            } else if (battery > 15) {
+                // 30-15%: "che..."
+                speedMult = 1.8;
+                jumpMult = 0.85;
+                spawnRate = 1400;
+                effectIntensity = 0.2;
+            } else if (battery > 7) {
+                // 15-7%: "esto se fue a la mierda" - FIRST SPIKE
+                speedMult = 2.5;
+                jumpMult = 0.7;
+                spawnRate = 900;
+                effectIntensity = 0.6;
+            } else {
+                // 7-1%: supervivencia pura - SECOND SPIKE
+                speedMult = 3.2;
+                jumpMult = 0.55;
+                spawnRate = 600;
+                effectIntensity = 1;
+            }
+            
+            // Charging trap - NOW MORE EVIL
+            if (state.charging && battery < 20 && !state.chargingTrap) {
+                state.chargingTrap = true;
+                showWarning('¿PENSABAS QUE CARGAR TE IBA A AYUDAR?', 3000);
+            }
+            
+            // Extra evil if charging below 10%
+            if (state.charging && battery < 10) {
+                speedMult *= 1.3;
+                
+                // Random speed bursts - player won't know if it's punishment or bug
+                if (!state.chargingPunishment && Math.random() < 0.02) {
+                    state.chargingPunishment = true;
+                    state.tempSpeedBoost = 2;
+                    setTimeout(() => {
+                        state.tempSpeedBoost = 1;
+                        state.chargingPunishment = false;
+                    }, 3000);
+                }
+            }
+            
+            // Apply temp speed boost from charging punishment
+            speedMult *= (state.tempSpeedBoost || 1);
+            
+            return { speedMult, jumpMult, spawnRate, effectIntensity };
+        }
+        
+        // Warning System
+        function showWarning(text, duration = 2000) {
+            warningMessage.textContent = text;
+            warningMessage.classList.remove('hidden');
+            playSound('warning');
+            
+            setTimeout(() => {
+                warningMessage.classList.add('hidden');
+            }, duration);
+        }
+        
+        function checkBatteryWarnings() {
+            const battery = state.battery;
+            
+            if (battery <= 30 && !state.warningShown[30]) {
+                state.warningShown[30] = true;
+                showWarning('che...', 1500);
+            }
+            
+            if (battery <= 20 && !state.warningShown[20]) {
+                state.warningShown[20] = true;
+                showWarning('⚠️ CONECTÁ EL CARGADOR... O NO', 3000);
+            }
+            
+            if (battery <= 15 && !state.warningShown[15]) {
+                state.warningShown[15] = true;
+                showWarning('ESTO SE FUE A LA MIERDA', 2500);
+                // Sudden visual spike
+                document.body.classList.add('shake');
+                setTimeout(() => document.body.classList.remove('shake'), 1000);
+            }
+            
+            if (battery <= 10 && !state.warningShown[10]) {
+                state.warningShown[10] = true;
+                showWarning('¿TODAVÍA SEGUÍS?', 2500);
+                document.body.classList.add('flicker');
+                setTimeout(() => document.body.classList.remove('flicker'), 800);
+            }
+            
+            if (battery <= 7 && !state.warningShown[7]) {
+                state.warningShown[7] = true;
+                showWarning('SUPERVIVENCIA', 2000);
+                // Another visual spike
+                canvas.style.filter = 'saturate(3) contrast(1.5)';
+                setTimeout(() => canvas.style.filter = '', 500);
+            }
+            
+            if (battery <= 5 && !state.warningShown[5]) {
+                state.warningShown[5] = true;
+                // No warning. Just silence. That's worse.
+                hud.style.opacity = '0.15';
+            }
+            
+            if (battery <= 3 && !state.warningShown[3]) {
+                state.warningShown[3] = true;
+                // Tiny, creepy message
+                showWarning('...', 1500);
+            }
+            
+            if (battery <= 1 && !state.finalTriggered) {
+                triggerFinalEnding();
+            }
+        }
+        
+        // Final Ending (1%) - NOW WITH LASTING TRAUMA
+        function triggerFinalEnding() {
+            state.finalTriggered = true;
+            state.gameRunning = false;
+            state.finalLock = true; // Lock ALL inputs
+            
+            playSound('final');
+            
+            // Fade to black
+            const overlay = document.createElement('div');
+            overlay.className = 'fixed inset-0 bg-black z-50';
+            overlay.style.opacity = '0';
+            overlay.style.transition = 'opacity 2s';
+            document.body.appendChild(overlay);
+            
+            setTimeout(() => overlay.style.opacity = '1', 100);
+            
+            setTimeout(() => {
+                overlay.remove();
+                finalScreen.classList.remove('hidden');
+                hud.classList.add('hidden');
+                
+                const messages = [
+                    "...",
+                    "no te avisamos para ganar",
+                    "el juego terminó hace rato",
+                    "vos seguías jugando",
+                    "...",
+                    "la batería siempre fue una excusa",
+                    "...",
+                    `puntos finales: ${state.score}`,
+                    "...",
+                    "cargá el celular",
+                    "y olvidate de esto"
+                ];
+                
+                let index = 0;
+                const textEl = document.getElementById('finalText');
+                
+                function showNext() {
+                    if (index < messages.length) {
+                        textEl.style.opacity = '0';
+                        setTimeout(() => {
+                            textEl.textContent = messages[index];
+                            textEl.style.opacity = '1';
+                            textEl.style.transition = 'opacity 1s';
+                            index++;
+                            setTimeout(showNext, 3000);
+                        }, 500);
+                    } else {
+                        // AFTER ALL MESSAGES - THE CRUEL PART
+                        setTimeout(() => {
+                            textEl.style.opacity = '0';
+                            
+                            // 12 SECONDS OF NOTHING - pure anxiety
+                            // Player doesn't know if it's frozen, if it's over, if something's coming
+                            setTimeout(() => {
+                                textEl.textContent = 'ya terminó';
+                                textEl.style.opacity = '0.3';
+                                textEl.style.fontSize = '1rem';
+                                
+                                // Still no menu. Wait another 8 seconds.
+                                setTimeout(() => {
+                                    // Tiny, barely visible restart hint
+                                    const hint = document.createElement('p');
+                                    hint.textContent = 'tocá para salir';
+                                    hint.className = 'text-gray-800 text-xs mt-8';
+                                    hint.style.opacity = '0';
+                                    hint.style.transition = 'opacity 3s';
+                                    textEl.parentNode.appendChild(hint);
+                                    
+                                    setTimeout(() => hint.style.opacity = '0.2', 100);
+                                    
+                                    // Finally unlock inputs
+                                    state.finalLock = false;
+                                }, 8000);
+                            }, 12000);
+                        }, 2000);
+                    }
+                }
+                showNext();
+            }, 2500);
+        }
+        
+        // Player
+        const player = {
+            x: 100,
+            width: 40,
+            height: 60,
+            
+            draw() {
+                const difficulty = getDifficulty();
+                
+                // Shake effect at low battery
+                let shakeX = 0, shakeY = 0;
+                if (state.battery <= 10) {
+                    shakeX = (Math.random() - 0.5) * difficulty.effectIntensity * 10;
+                    shakeY = (Math.random() - 0.5) * difficulty.effectIntensity * 10;
+                }
+                
+                // Color based on battery
+                let color;
+                if (state.battery > 50) {
+                    color = '#22c55e'; // Green
+                } else if (state.battery > 20) {
+                    color = '#eab308'; // Yellow
+                } else if (state.battery > 10) {
+                    color = '#f97316'; // Orange
+                } else {
+                    color = '#ef4444'; // Red
+                }
+                
+                // Glitch effect
+                if (state.battery <= 15 && Math.random() < 0.1) {
+                    color = `hsl(${Math.random() * 360}, 100%, 50%)`;
+                }
+                
+                ctx.fillStyle = color;
+                ctx.fillRect(
+                    this.x + shakeX, 
+                    state.playerY - this.height + shakeY, 
+                    this.width, 
+                    this.height
+                );
+                
+                // Eyes
+                ctx.fillStyle = '#000';
+                const eyeY = state.playerY - this.height + 15;
+                
+                // Eyes get crazier at low battery
+                if (state.battery <= 10) {
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(this.x + 8 + shakeX, eyeY + shakeY, 10, 10);
+                    ctx.fillRect(this.x + 22 + shakeX, eyeY + shakeY, 10, 10);
+                    ctx.fillStyle = '#f00';
+                    ctx.fillRect(this.x + 11 + shakeX, eyeY + 3 + shakeY, 4, 4);
+                    ctx.fillRect(this.x + 25 + shakeX, eyeY + 3 + shakeY, 4, 4);
+                } else {
+                    ctx.fillRect(this.x + 10 + shakeX, eyeY + shakeY, 8, 8);
+                    ctx.fillRect(this.x + 22 + shakeX, eyeY + shakeY, 8, 8);
+                }
+            },
+            
+            jump() {
+                if (!state.isJumping) {
+                    const difficulty = getDifficulty();
+                    
+                    // INPUT LAG AT LOW BATTERY - "yo apreté... ¿no apreté?"
+                    if (state.battery < 10) {
+                        const delay = 50 + Math.random() * 120; // 50-170ms random delay
+                        
+                        // Sometimes just... don't respond at all (15% chance)
+                        if (Math.random() < 0.15) {
+                            // Ghost input - nothing happens, player doubts themselves
+                            return;
+                        }
+                        
+                        // Sometimes don't play the sound (makes them doubt even more)
+                        const playJumpSound = Math.random() > 0.3;
+                        
+                        setTimeout(() => {
+                            if (!state.isJumping && state.gameRunning) {
+                                state.playerVelocity = state.jumpForce * difficulty.jumpMult;
+                                state.isJumping = true;
+                                if (playJumpSound) playSound('jump');
+                            }
+                        }, delay);
+                    } else {
+                        state.playerVelocity = state.jumpForce * difficulty.jumpMult;
+                        state.isJumping = true;
+                        playSound('jump');
+                    }
+                }
+            },
+            
+            update() {
+                state.playerVelocity += state.gravity;
+                state.playerY += state.playerVelocity;
+                
+                if (state.playerY >= state.groundY) {
+                    state.playerY = state.groundY;
+                    state.playerVelocity = 0;
+                    state.isJumping = false;
+                }
+            }
+        };
+        
+        // Obstacles
+        function spawnObstacle() {
+            const difficulty = getDifficulty();
+            const now = Date.now();
+            
+            // Random spawn delay based on difficulty
+            const delay = difficulty.spawnRate * (0.7 + Math.random() * 0.6);
+            
+            if (now - state.lastObstacle > delay) {
+                // Obstacle appears later at low battery (less reaction time)
+                const spawnX = canvas.width + (state.battery < 20 ? -100 : 0);
+                
+                let obstacleHeight = 40 + Math.random() * 40;
+                let obstacleWidth = 30 + Math.random() * 30;
+                
+                // CHARGING UNDER 10%: Sometimes spawn impossible obstacles
+                // Player won't know if it's punishment or "bad luck"
+                if (state.charging && state.battery < 10 && Math.random() < 0.15) {
+                    // Impossibly tall obstacle
+                    obstacleHeight = 150 + Math.random() * 50;
+                    obstacleWidth = 60;
+                }
+                
+                // At 7% or less: sometimes spawn double obstacles
+                if (state.battery <= 7 && Math.random() < 0.2) {
+                    state.obstacles.push({
+                        x: spawnX,
+                        width: obstacleWidth,
+                        height: obstacleHeight
+                    });
+                    // Second one right after
+                    state.obstacles.push({
+                        x: spawnX + obstacleWidth + 80,
+                        width: 30 + Math.random() * 20,
+                        height: 50 + Math.random() * 30
+                    });
+                    state.lastObstacle = now;
+                    return;
+                }
+                
+                state.obstacles.push({
+                    x: spawnX,
+                    width: obstacleWidth,
+                    height: obstacleHeight
+                });
+                state.lastObstacle = now;
+            }
+        }
+        
+        function updateObstacles() {
+            const difficulty = getDifficulty();
+            const speed = state.speed * difficulty.speedMult;
+            
+            state.obstacles = state.obstacles.filter(obs => {
+                obs.x -= speed;
+                return obs.x > -obs.width;
+            });
+        }
+        
+        function drawObstacles() {
+            ctx.fillStyle = '#dc2626';
+            
+            state.obstacles.forEach(obs => {
+                // Glitch effect on obstacles
+                let drawX = obs.x;
+                if (state.battery <= 15 && Math.random() < 0.15) {
+                    drawX += (Math.random() - 0.5) * 20;
+                }
+                
+                ctx.fillRect(drawX, state.groundY - obs.height, obs.width, obs.height);
+                
+                // Spikes
+                ctx.beginPath();
+                ctx.moveTo(drawX, state.groundY - obs.height);
+                ctx.lineTo(drawX + obs.width / 2, state.groundY - obs.height - 15);
+                ctx.lineTo(drawX + obs.width, state.groundY - obs.height);
+                ctx.fill();
+            });
+        }
+        
+        function checkCollisions() {
+            const playerBox = {
+                x: player.x + 5,
+                y: state.playerY - player.height + 5,
+                width: player.width - 10,
+                height: player.height - 10
+            };
+            
+            for (const obs of state.obstacles) {
+                const obsBox = {
+                    x: obs.x,
+                    y: state.groundY - obs.height,
+                    width: obs.width,
+                    height: obs.height
+                };
+                
+                if (playerBox.x < obsBox.x + obsBox.width &&
+                    playerBox.x + playerBox.width > obsBox.x &&
+                    playerBox.y < obsBox.y + obsBox.height &&
+                    playerBox.y + playerBox.height > obsBox.y) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        // Ground
+        function drawGround() {
+            const difficulty = getDifficulty();
+            
+            // Ground color based on battery
+            if (state.battery <= 10) {
+                ctx.fillStyle = state.battery <= 5 ? '#1a0000' : '#2a1a1a';
+            } else {
+                ctx.fillStyle = '#1a1a2e';
+            }
+            
+            ctx.fillRect(0, state.groundY, canvas.width, canvas.height - state.groundY);
+            
+            // Ground line
+            ctx.strokeStyle = state.battery <= 20 ? '#ff0000' : '#4a4a5e';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(0, state.groundY);
+            ctx.lineTo(canvas.width, state.groundY);
+            ctx.stroke();
+        }
+        
+        // Background Effects
+        function drawBackground() {
+            const difficulty = getDifficulty();
+            
+            // Base color shifts with battery
+            let bgColor;
+            if (state.battery > 50) {
+                bgColor = '#0a0a0a';
+            } else if (state.battery > 20) {
+                bgColor = '#0a0505';
+            } else if (state.battery > 10) {
+                bgColor = '#150505';
+            } else {
+                bgColor = `rgb(${20 + Math.random() * 10}, 0, 0)`;
+            }
+            
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Vignette effect (stronger at low battery)
+            const gradient = ctx.createRadialGradient(
+                canvas.width / 2, canvas.height / 2, 0,
+                canvas.width / 2, canvas.height / 2, canvas.width * 0.7
+            );
+            gradient.addColorStop(0, 'transparent');
+            gradient.addColorStop(1, `rgba(0, 0, 0, ${0.3 + difficulty.effectIntensity * 0.5})`);
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Static noise at very low battery
+            if (state.battery <= 15) {
+                ctx.fillStyle = `rgba(255, 255, 255, ${0.02 * difficulty.effectIntensity})`;
+                for (let i = 0; i < 50 * difficulty.effectIntensity; i++) {
+                    const x = Math.random() * canvas.width;
+                    const y = Math.random() * canvas.height;
+                    ctx.fillRect(x, y, 2, 2);
+                }
+            }
+        }
+        
+        // Score
+        function updateScore() {
+            state.score += Math.ceil(getDifficulty().speedMult);
+            document.getElementById('score').textContent = state.score;
+        }
+        
+        // Game Loop
+        let lastFrame = 0;
+        let heartbeatTimer = 0;
+        
+        function gameLoop(timestamp) {
+            if (!state.gameRunning) return;
+            
+            const delta = timestamp - lastFrame;
+            lastFrame = timestamp;
+            
+            // Update battery display - THROTTLED (every 500ms or on change)
+            const now = Date.now();
+            if (now - state.lastBatteryUpdate > 500 || state.battery !== state.lastBatteryValue) {
+                updateBatteryDisplay();
+                checkBatteryWarnings();
+                state.lastBatteryUpdate = now;
+                state.lastBatteryValue = state.battery;
+            }
+            
+            // Heartbeat sound at low battery
+            if (state.battery <= 15) {
+                heartbeatTimer += delta;
+                const heartbeatRate = 1000 - (15 - state.battery) * 50; // Faster as battery drops
+                if (heartbeatTimer > heartbeatRate) {
+                    playSound('heartbeat');
+                    heartbeatTimer = 0;
+                }
+                
+                // Random static sounds
+                if (Math.random() < 0.02) {
+                    playSound('static');
+                }
+            }
+            
+            // Apply screen shake
+            if (state.battery <= 10) {
+                const intensity = (10 - state.battery) / 10 * 5;
+                canvas.style.transform = `translate(${(Math.random() - 0.5) * intensity}px, ${(Math.random() - 0.5) * intensity}px)`;
+            } else {
+                canvas.style.transform = '';
+            }
+            
+            // Clear and draw
+            drawBackground();
+            drawGround();
+            
+            // Update
+            player.update();
+            spawnObstacle();
+            updateObstacles();
+            
+            // Draw
+            drawObstacles();
+            player.draw();
+            
+            // Check collision
+            if (checkCollisions()) {
+                gameOver();
+                return;
+            }
+            
+            // Score
+            updateScore();
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Game Over
+        function gameOver() {
+            state.gameRunning = false;
+            playSound('hit');
+            
+            if (navigator.vibrate) {
+                navigator.vibrate([100, 50, 100, 50, 200]);
+            }
+            
+            // Screen flash
+            canvas.style.filter = 'invert(1)';
+            setTimeout(() => canvas.style.filter = '', 100);
+            
+            document.getElementById('finalScore').textContent = state.score;
+            document.getElementById('deathBattery').textContent = state.battery;
+            
+            // Custom messages based on battery
+            let message;
+            if (state.battery <= 5) {
+                message = 'Casi llegás al final... casi.';
+            } else if (state.battery <= 10) {
+                message = 'La batería te traicionó';
+            } else if (state.battery <= 20) {
+                message = 'Debiste cargar antes';
+            } else if (state.battery <= 50) {
+                message = 'Nivel intermedio, muerte intermedia';
+            } else {
+                message = 'Mucha batería, poca habilidad';
+            }
+            
+            if (state.chargingTrap) {
+                message = 'El cargador no te salvó, ¿viste?';
+            }
+            
+            document.getElementById('gameOverMessage').textContent = message;
+            
+            hud.classList.add('hidden');
+            gameOverScreen.classList.remove('hidden');
+        }
+        
+        // Start Game
+        function startGame() {
+            initAudio();
+            
+            state.gameRunning = true;
+            state.score = 0;
+            state.obstacles = [];
+            state.playerY = state.groundY;
+            state.playerVelocity = 0;
+            state.isJumping = false;
+            state.lastObstacle = 0;
+            state.warningShown = {};
+            state.chargingTrap = false;
+            state.finalTriggered = false;
+            
+            hud.style.opacity = '1';
+            
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            hud.classList.remove('hidden');
+            
+            lastFrame = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Event Listeners
+        document.getElementById('startBtn').addEventListener('click', startGame);
+        document.getElementById('restartBtn').addEventListener('click', startGame);
+        
+        // Jump controls
+        document.addEventListener('keydown', (e) => {
+            if (state.finalLock) return; // LOCKED during final sequence
+            
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                e.preventDefault();
+                if (state.gameRunning) {
+                    player.jump();
+                } else if (!startScreen.classList.contains('hidden')) {
+                    startGame();
+                } else if (!finalScreen.classList.contains('hidden') && !state.finalLock) {
+                    // Exit from final screen
+                    location.reload();
+                }
+            }
+        });
+        
+        document.addEventListener('touchstart', (e) => {
+            if (state.finalLock) return; // LOCKED during final sequence
+            
+            if (state.gameRunning) {
+                e.preventDefault();
+                player.jump();
+            } else if (!finalScreen.classList.contains('hidden') && !state.finalLock) {
+                // Exit from final screen
+                location.reload();
+            }
+        }, { passive: false });
+        
+        document.addEventListener('mousedown', (e) => {
+            if (state.finalLock) return; // LOCKED during final sequence
+            
+            if (state.gameRunning && e.target === canvas) {
+                player.jump();
+            } else if (!finalScreen.classList.contains('hidden') && !state.finalLock) {
+                // Exit from final screen
+                location.reload();
+            }
+        });
+        
+        // Init
+        initBattery();
+        
+        // Show audio warning on mobile
+        if (/Mobi|Android/i.test(navigator.userAgent)) {
+            document.getElementById('audioWarning').classList.remove('hidden');
+        }
+        
+        // Simulate battery drain in simulated mode during gameplay
+        setInterval(() => {
+            if (state.simulated && state.gameRunning) {
+                state.battery = Math.max(1, state.battery - 0.5);
+                updateBatteryDisplay();
+            }
+        }, 3000);
+    </script>
+</body>
+</html>
