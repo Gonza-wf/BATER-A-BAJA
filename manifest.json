@@ -1,19 +1,19 @@
 {
   "name": "BATERÍA BAJA",
   "short_name": "BATERÍA",
-  "start_url": "/bateria-baja/",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/bateria-baja/icon-192.png",
+      "src": "https://placehold.jp/24/cc0000/ffffff/192x192.png?text=Bateria",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/bateria-baja/icon-512.png",
+      "src": "https://placehold.jp/24/cc0000/ffffff/512x512.png?text=Bateria",
       "sizes": "512x512",
       "type": "image/png"
     }
