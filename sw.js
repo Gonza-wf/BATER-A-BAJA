@@ -1,10 +1,10 @@
-const CACHE_NAME = "bateria-baja-v4";
+const CACHE_NAME = "bateria-baja-v5";
 const ASSETS = [
   "./",
   "./index.html",
-  "./style.css",
-  "./game.js",
-  "./manifest.json"
+  "./manifest.json",
+  "./icon-192.png",
+  "./icon-512.png"
 ];
 
 self.addEventListener("install", event => {
@@ -30,6 +30,7 @@ self.addEventListener("fetch", event => {
     caches.match(event.request).then(res => res || fetch(event.request))
   );
 });
+
 
 
 
