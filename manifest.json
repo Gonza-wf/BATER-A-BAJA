@@ -1,7 +1,7 @@
 {
   "name": "BATERÍA BAJA",
   "short_name": "BATERÍA",
-  "start_url": "BATER-A-BAJA",
+  "start_url": "/bateria-baja/",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",
@@ -19,5 +19,3 @@
     }
   ]
 }
-
-
