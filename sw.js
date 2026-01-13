@@ -1,15 +1,16 @@
-const CACHE_NAME = "bateria-baja-v8";
+const CACHE_NAME = "bateria-baja-v10"; // Subimos la versión
 const ASSETS = [
-  "/bateria-baja/",
-  "/bateria-baja/index.html",
-  "/bateria-baja/manifest.json",
-  "/bateria-baja/icon-192.png",
-  "/bateria-baja/icon-512.png"
-];;
+  "./",
+  "./index.html",
+  "./manifest.json"
+];
 
 self.addEventListener("install", event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
+    caches.open(CACHE_NAME).then(cache => {
+      // Usamos return para asegurar que se complete
+      return cache.addAll(ASSETS);
+    })
   );
   self.skipWaiting();
 });
@@ -30,10 +31,3 @@ self.addEventListener("fetch", event => {
     caches.match(event.request).then(res => res || fetch(event.request))
   );
 });
-
-
-
-
-
-
-
